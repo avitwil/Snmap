@@ -1,8 +1,12 @@
 
 ````markdown
+# Super Nmap
+
+**Author:** Avi Twil
+**Company:** Twil Industries
 # 🚀 Snmap - Super Nmap Python Wrapper
 
-![Snmap Logo](https://via.placeholder.com/800x150?text=Twil+Industries+-+Super+Nmap)
+
 
 **Snmap** is a **Python3-based wrapper for Nmap** that makes network scanning **fast, readable, and visually enhanced**.  
 It supports single IPs, multiple IPs from files, or entire subnets, and can export results to **JSON**. Snmap highlights OS detection, port states, services, and Nmap script results with **color-coded terminal output**.

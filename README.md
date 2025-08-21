@@ -1,5 +1,5 @@
 
-````markdown
+
 # Super Nmap
 
 **Author:** Avi Twil
@@ -202,7 +202,7 @@ This project is released under the **MIT License**.
 
 ## 👨‍💻 Author
 
-**Avi Twil** (c) Ecomschool.co.il
+**Avi Twil** (c)  student at Ecomschool.co.il
 Twil Industries
 
 ````

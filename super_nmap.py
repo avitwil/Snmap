@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import nmap
 from colorama import Fore, Style, init
 from tqdm import tqdm
@@ -7,26 +8,29 @@ import pyfiglet
 import time
 import sys
 
-
 init(autoreset=True)
 
 # ----------- Logo ----------- #
 def print_logo():
     print(Fore.BLUE + pyfiglet.figlet_format("Twil-Industries", font="slant"))
-    print(Fore.CYAN + "================= Presents to you =================\n")
+    print(Fore.CYAN + "========================== Presents to you =========================\n")
     print(Fore.RED + pyfiglet.figlet_format(" Super Nmap ", font="slant"))
-    print(Fore.GREEN + "================= Avi Twil (c) =================\n")
+    print(Fore.GREEN + "================= Avi Twil (c) Ecomschool.co.il  student =================\n")
 
 # ----------- Help Menu ----------- #
 def help_menu():
     print(Fore.YELLOW + "USAGE: " + Fore.CYAN +
-          "Snmap -f <ip_file> [-flags <NMAP_FLAGS>]\n")
+          "Snmap [-f <ip_file>] [-t <ip>] [-ts <subnet>] [-flags <NMAP_FLAGS>]\n")
 
-    print(Fore.MAGENTA + "Options:")
+    print(Fore.MAGENTA + "Target Options:")
     print(Fore.YELLOW + "  -f <file>            " + Fore.WHITE + "File containing list of IPs")
+    print(Fore.YELLOW + "  -t <ip>              " + Fore.WHITE + "Single IP address to scan")
+    print(Fore.YELLOW + "  -ts <subnet>         " + Fore.WHITE + "Subnet in CIDR format (e.g., 192.168.1.0/24)\n")
+
+    print(Fore.MAGENTA + "General Options:")
     print(Fore.YELLOW + "  -flags <flags>       " + Fore.WHITE + "Nmap flags to use, e.g., -sS -sV -O --script vuln")
-    print(Fore.YELLOW + "  -h, --help           " + Fore.WHITE + "Show this help menu\n")
-    print(Fore.YELLOW + "  --json <file>        " + Fore.WHITE + "Save results to JSON instead of printing")
+    print(Fore.YELLOW + "  -h, --help           " + Fore.WHITE + "Show this help menu")
+    print(Fore.YELLOW + "  --json <file>        " + Fore.WHITE + "Save results to JSON instead of printing\n")
 
     print(Fore.MAGENTA + "Nmap Scan Types:")
     print(Fore.YELLOW + "  -sS                  " + Fore.WHITE + "TCP SYN scan (default stealth scan)")
@@ -73,8 +77,8 @@ def help_menu():
 
     print(Fore.GREEN + "EXAMPLES:")
     print(Fore.CYAN + "  Snmap -f ips.txt")
-    print(Fore.CYAN + "  Snmap -f ips.txt -flags -sS -sV --script vuln")
-    print(Fore.CYAN + "  Snmap -f ips.txt -flags -A -p 22,80,443 --open\n")
+    print(Fore.CYAN + "  Snmap -t 192.168.1.10 -flags -sV")
+    print(Fore.CYAN + "  Snmap -ts 192.168.1.0/24 -flags -A --open\n")
 
 # ----------- Read IPs ----------- #
 def read_ips(file_path):
@@ -84,6 +88,25 @@ def read_ips(file_path):
     except FileNotFoundError:
         print(f"{Fore.RED}File not found: {file_path}{Style.RESET_ALL}")
         sys.exit(1)
+
+# ----------- Get Targets ----------- #
+def get_targets(args):
+    targets = []
+
+    if args.file:
+        targets.extend(read_ips(args.file))
+
+    if args.target:
+        targets.append(args.target)
+
+    if args.subnet:
+        targets.append(args.subnet)
+
+    if not targets:
+        print(f"{Fore.RED}No targets specified. Use -f, -t, or -ts{Style.RESET_ALL}")
+        sys.exit(1)
+
+    return targets
 
 # ----------- Run Nmap Scan ----------- #
 def run_nmap_scan(ip, flags):
@@ -97,7 +120,6 @@ def run_nmap_scan(ip, flags):
 
 # ----------- Format Results ----------- #
 def format_results(results):
-    """ מחזיר dict מסודר יותר: OS -> Ports -> Scripts """
     formatted = {}
     for ip, scan in results.items():
         if not scan:
@@ -106,7 +128,7 @@ def format_results(results):
 
         ip_data = {}
 
-        # מערכת הפעלה
+
         os_guesses = []
         if 'osmatch' in scan:
             for osmatch in scan['osmatch']:
@@ -134,7 +156,7 @@ def format_results(results):
         if ports_info:
             ip_data["ports"] = ports_info
 
-        # סקריפטים
+
         scripts = {}
         for proto in scan.all_protocols():
             for port in scan[proto].keys():
@@ -187,6 +209,8 @@ def main():
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-f", "--file", help="File containing IP addresses")
+    parser.add_argument("-t", "--target", help="Single IP address to scan")
+    parser.add_argument("-ts", "--subnet", help="Subnet to scan in CIDR format (e.g., 192.168.1.0/24)")
     parser.add_argument("-flags", "--flags", nargs=argparse.REMAINDER, default=["-sS"], help="Nmap flags to use")
     parser.add_argument("--json", help="Save results to JSON instead of printing")
     parser.add_argument("-h", "--help", action="store_true", help="Show help menu")
@@ -196,16 +220,12 @@ def main():
         help_menu()
         sys.exit(0)
 
-    if not args.file:
-        print(f"{Fore.RED}No IP file specified. Please use -f <file> or run with -h for help.{Style.RESET_ALL}")
-        sys.exit(1)
-
-    ips = read_ips(args.file)
+    targets = get_targets(args)
     results = {}
 
-    print(f"{Fore.MAGENTA}Starting Nmap scan on {len(ips)} hosts with flags: {' '.join(args.flags)}{Style.RESET_ALL}\n")
+    print(f"{Fore.MAGENTA}Starting Nmap scan on {len(targets)} targets with flags: {' '.join(args.flags)}{Style.RESET_ALL}\n")
 
-    for ip in tqdm(ips, desc="Scanning IPs", unit="host"):
+    for ip in tqdm(targets, desc="Scanning Targets", unit="host"):
         scan_result = run_nmap_scan(ip, args.flags)
         results[ip] = scan_result
         time.sleep(0.1)

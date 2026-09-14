@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
 import nmap
 from colorama import Fore, Style, init
 from tqdm import tqdm
@@ -80,14 +81,39 @@ def help_menu():
     print(Fore.CYAN + "  Snmap -t 192.168.1.10 -flags -sV")
     print(Fore.CYAN + "  Snmap -ts 192.168.1.0/24 -flags -A --open\n")
 
+# ----------- Target Validation ----------- #
+# Accepts things that look like an IPv4 address, hostname, or CIDR range.
+# Explicitly rejects anything starting with '-' so a malicious/malformed
+# target line can never be interpreted as an extra nmap/python-nmap
+# command-line option (argument injection).
+_TARGET_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9.\-/]*$')
+
+
+def is_valid_target(target: str) -> bool:
+    """Return True if `target` is safe to hand to python-nmap as a host."""
+    if not target:
+        return False
+    if target.startswith('-'):
+        return False
+    return bool(_TARGET_RE.match(target))
+
+
 # ----------- Read IPs ----------- #
 def read_ips(file_path):
     try:
         with open(file_path, 'r') as f:
-            return [line.strip() for line in f if line.strip()]
+            raw_lines = [line.strip() for line in f if line.strip()]
     except FileNotFoundError:
         print(f"{Fore.RED}File not found: {file_path}{Style.RESET_ALL}")
         sys.exit(1)
+
+    valid_targets = []
+    for line in raw_lines:
+        if is_valid_target(line):
+            valid_targets.append(line)
+        else:
+            print(f"{Fore.RED}Warning: skipping invalid target in {file_path}: {line!r}{Style.RESET_ALL}")
+    return valid_targets
 
 # ----------- Get Targets ----------- #
 def get_targets(args):
@@ -97,13 +123,19 @@ def get_targets(args):
         targets.extend(read_ips(args.file))
 
     if args.target:
-        targets.append(args.target)
+        if is_valid_target(args.target):
+            targets.append(args.target)
+        else:
+            print(f"{Fore.RED}Warning: ignoring invalid -t target: {args.target!r}{Style.RESET_ALL}")
 
     if args.subnet:
-        targets.append(args.subnet)
+        if is_valid_target(args.subnet):
+            targets.append(args.subnet)
+        else:
+            print(f"{Fore.RED}Warning: ignoring invalid -ts subnet: {args.subnet!r}{Style.RESET_ALL}")
 
     if not targets:
-        print(f"{Fore.RED}No targets specified. Use -f, -t, or -ts{Style.RESET_ALL}")
+        print(f"{Fore.RED}No valid targets specified. Use -f, -t, or -ts{Style.RESET_ALL}")
         sys.exit(1)
 
     return targets

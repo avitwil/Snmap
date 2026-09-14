@@ -80,6 +80,12 @@ or if executable:
 
 * `-flags <NMAP_FLAGS>` : Pass custom Nmap flags, e.g., `-sS -sV -O --script vuln`
 * Default scan type: `-sS` (SYN scan)
+* ⚠️ **`-flags`/`--flags` MUST be the LAST argument on the command line.** It
+  consumes every argument that follows it, so if you put `-t`, `-ts`, or `-f`
+  *after* `-flags`, they will be silently swallowed as nmap flags instead of
+  being parsed as your target. Always write target options first:
+  `Snmap -t 192.168.1.10 -flags -sV` (correct), not
+  `Snmap -flags -sV -t 192.168.1.10` (the `-t 192.168.1.10` part is swallowed).
 
 ### 💾 Output Options
 

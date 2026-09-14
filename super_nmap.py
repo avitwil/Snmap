@@ -30,6 +30,10 @@ def help_menu():
 
     print(Fore.MAGENTA + "General Options:")
     print(Fore.YELLOW + "  -flags <flags>       " + Fore.WHITE + "Nmap flags to use, e.g., -sS -sV -O --script vuln")
+    print(Fore.RED    + "                       IMPORTANT: -flags/--flags consumes ALL remaining")
+    print(Fore.RED    + "                       arguments, so it MUST be the LAST option on the")
+    print(Fore.RED    + "                       command line - anything after it (including -t/-ts/-f)")
+    print(Fore.RED    + "                       will be treated as an nmap flag, not a target.")
     print(Fore.YELLOW + "  -h, --help           " + Fore.WHITE + "Show this help menu")
     print(Fore.YELLOW + "  --json <file>        " + Fore.WHITE + "Save results to JSON instead of printing\n")
 
@@ -241,15 +245,49 @@ def display_results(formatted):
                     print(f"    {Fore.BLUE}{port} - {script_name}:{Style.RESET_ALL} {output}")
         print("")
 
+# ----------- Ordering Safety Check ----------- #
+def check_flags_ordering(argv):
+    """
+    -flags/--flags uses argparse.REMAINDER, which swallows every argument
+    that comes after it - including -t/-ts/-f. If a user puts -flags before
+    a target option, that target option is silently absorbed into the nmap
+    flags instead of being parsed as a target. Warn loudly if we detect that.
+    """
+    flag_tokens = ("-flags", "--flags")
+    target_tokens = ("-f", "--file", "-t", "--target", "-ts", "--subnet")
+
+    flag_index = None
+    for i, token in enumerate(argv):
+        if token in flag_tokens:
+            flag_index = i
+            break
+
+    if flag_index is None:
+        return
+
+    for token in argv[flag_index + 1:]:
+        if token in target_tokens:
+            print(f"{Fore.RED}Warning: '{token}' appears AFTER -flags/--flags on the command line.{Style.RESET_ALL}")
+            print(f"{Fore.RED}-flags/--flags consumes ALL remaining arguments, so '{token}' will be passed "
+                  f"to nmap as a flag instead of being parsed as a target option.{Style.RESET_ALL}")
+            print(f"{Fore.RED}Fix: put -flags/--flags LAST on the command line, e.g. "
+                  f"'Snmap -t 192.168.1.10 -flags -sV'{Style.RESET_ALL}\n")
+            break
+
 # ----------- Main ----------- #
 def main():
     print_logo()
+
+    check_flags_ordering(sys.argv[1:])
 
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("-f", "--file", help="File containing IP addresses")
     parser.add_argument("-t", "--target", help="Single IP address to scan")
     parser.add_argument("-ts", "--subnet", help="Subnet to scan in CIDR format (e.g., 192.168.1.0/24)")
-    parser.add_argument("-flags", "--flags", nargs=argparse.REMAINDER, default=["-sS"], help="Nmap flags to use")
+    parser.add_argument("-flags", "--flags", nargs=argparse.REMAINDER, default=["-sS"],
+                         help="Nmap flags to use, e.g. -sS -sV -O --script vuln. "
+                              "MUST be the last option on the command line - everything "
+                              "after -flags/--flags is passed straight through to nmap.")
     parser.add_argument("--json", help="Save results to JSON instead of printing")
     parser.add_argument("-h", "--help", action="store_true", help="Show help menu")
     args = parser.parse_args()

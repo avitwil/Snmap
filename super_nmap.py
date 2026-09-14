@@ -146,8 +146,14 @@ def run_nmap_scan(ip, flags):
     try:
         nm.scan(hosts=ip, arguments=" ".join(flags))
         return nm[ip] if ip in nm.all_hosts() else None
+    except nmap.PortScannerError as e:
+        print(f"{Fore.RED}[nmap error] Target {ip} failed - nmap itself reported an error: {e}{Style.RESET_ALL}")
+        return None
+    except KeyError as e:
+        print(f"{Fore.RED}[parse error] Target {ip} failed - unexpected/missing field in scan result: {e}{Style.RESET_ALL}")
+        return None
     except Exception as e:
-        print(f"{Fore.RED}Error scanning {ip}: {e}{Style.RESET_ALL}")
+        print(f"{Fore.RED}[error] Target {ip} failed - {type(e).__name__}: {e}{Style.RESET_ALL}")
         return None
 
 # ----------- Format Results ----------- #
